@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Last Gardians 개인정보 설문</title>
+  <link href="https://fonts.googleapis.com/css2?family=SUIT:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'SUIT', sans-serif;
+      margin: 0; padding: 0;
+      background: #f3f5f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { color: #2c3e50; }
+    button {
+      background-color: #2c3e50;
+      color: white;
+      padding: 0.8rem 2rem;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-top: 1.5rem;
+      cursor: pointer;
+    }
+    .progress {
+      height: 10px;
+      background: #eee;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: #2c3e50;
+      width: 0%;
+      transition: width 0.5s ease-in-out;
+    }
+    .option-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 60px;
+      background: #ecf0f1;
+      margin: 1rem 0;
+      padding: 0.8rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      text-align: center;
+      transition: background-color 0.3s;
+      box-sizing: border-box;
+    }
+    .option-btn:hover {
+      background-color: #d0d7dd;
+    }
+    .option-btn.selected {
+      background-color: #aab7c4;
+    }
+    .next-btn {
+      display: none;
+    }
+    canvas {
+      margin: 20px auto;
+    }
+    .legend {
+      margin-top: 1rem;
+      text-align: left;
+    }
+    .legend div {
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .legend span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="intro">
+    <h1>Last Gardians</h1>
+    <p>이 설문조사는 여러분의 개인정보 보호가 잘 이루어지고 있는지 확인하는 설문조사입니다.</p>
+    <button onclick="startSurvey()">설문조사 시작하기</button>
+  </div>
+
+  <div class="container" id="questionContainer" style="display:none;">
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <h2 id="question"></h2>
+    <div id="options"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">다음 질문으로</button>
+  </div>
+
+  <div class="container" id="resultContainer" style="display:none;">
+    <canvas id="resultChart" width="200" height="200"></canvas>
+    <div class="legend">
+      <div><span style="background-color:#3498db;"></span>양호 (0-49%)</div>
+      <div><span style="background-color:#f39c12;"></span>주의 (50-79%)</div>
+      <div><span style="background-color:#e74c3c;"></span>위험 (80-100%)</div>
+    </div>
+    <h2 id="scoreDisplay"></h2>
+    <p id="recommendation"></p>
+    <a id="policyLink" href="#" target="_blank">정책 자세히 보기</a>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        q: "새로운 웹사이트에 가입할 때 비밀번호를 어떻게 설정하십니까?",
+        options: [
+          { text: "암호 관리자 앱을 활용해 복잡한 암호를 자동 생성하고 관리한다", score: 1 },
+          { text: "모든 웹사이트에서 서로 다른 비밀번호를 사용한다", score: 3 },
+          { text: "비슷한 패턴으로 조금씩 바꿔 사용한다", score: 5 },
+          { text: "주요 서비스는 다르게 설정하고 나머지는 같은 비밀번호를 쓴다", score: 7 },
+          { text: "늘 같은 비밀번호를 사용한다", score: 10 },
+        ]
+      },
+      {
+        q: "공용 와이파이를 사용할 때의 행동은?",
+        options: [
+          { text: "절대로 공용 와이파이는 사용하지 않는다", score: 1 },
+          { text: "VPN을 사용한 후 접속한다", score: 3 },
+          { text: "민감한 서비스는 접속하지 않는다", score: 5 },
+          { text: "로그인 정보는 입력하지 않으려 노력한다", score: 7 },
+          { text: "아무런 걱정 없이 접속하고 인터넷을 사용한다", score: 10 },
+        ]
+      },
+      {
+        q: "의심스러운 링크가 포함된 이메일이나 문자를 받았을 때의 행동은?",
+        options: [
+          { text: "이메일·문자를 즉시 삭제하고 신고한다", score: 1 },
+          { text: "링크를 클릭하지 않고 발신자를 차단한다", score: 3 },
+          { text: "출처를 의심하고 지인에게 물어본다", score: 5 },
+          { text: "궁금해서 클릭해보긴 하지만 주의한다", score: 7 },
+          { text: "내용을 확인하고 바로 클릭한다", score: 10 },
+        ]
+      },
+      {
+        q: "SNS에서 개인정보(주소, 전화번호 등)를 어떻게 다루시나요?",
+        options: [
+          { text: "개인정보가 포함된 내용은 아예 올리지 않는다", score: 1 },
+          { text: "신분 노출 가능성 있는 게시물은 모두 비공개한다", score: 3 },
+          { text: "이름 정도만 공개하고 나머지는 안 올린다", score: 5 },
+          { text: "친구공개로 설정하고 올린다", score: 7 },
+          { text: "아무 제한 없이 올린다", score: 10 },
+        ]
+      },
+      {
+        q: "스마트폰 앱의 접근 권한 설정 방식은?",
+        options: [
+          { text: "반드시 필요한 기능만 허용하며 나머지는 차단한다", score: 1 },
+          { text: "설치 전에 권한 내용을 꼼꼼히 확인한다", score: 3 },
+          { text: "사용 후 설정에서 접근 권한을 확인해 조정한다", score: 5 },
+          { text: "앱이 요구하는 대로 기본 허용한다", score: 7 },
+          { text: "모든 권한을 허용하고 사용한다", score: 10 },
+        ]
+      },
+      {
+        q: "사용하는 기기의 운영체제(OS)나 앱 업데이트는 어떻게 관리합니까?",
+        options: [
+          { text: "자동 업데이트를 설정하고 보안 패치를 항상 유지한다", score: 1 },
+          { text: "업데이트 알림이 오면 바로 적용한다", score: 3 },
+          { text: "보안 업데이트는 가끔 확인한다", score: 5 },
+          { text: "오류가 날 때만 업데이트한다", score: 7 },
+          { text: "거의 업데이트하지 않는다", score: 10 },
+        ]
+      },
+      {
+        q: "비밀번호나 인증 정보를 어디에 저장합니까?",
+        options: [
+          { text: "비밀번호 관리자 앱을 사용한다", score: 1 },
+          { text: "인증 앱이나 기기 내 보안폴더에 저장한다", score: 3 },
+          { text: "브라우저에 저장해 둔다", score: 5 },
+          { text: "휴대폰 메모앱에 저장해 둔다", score: 7 },
+          { text: "종이에 적어두거나 메모장에 저장한다", score: 10 },
+        ]
+      },
+      {
+        q: "웹사이트 접속 시 보안 연결(https)을 확인하시나요?",
+        options: [
+          { text: "인증서 정보까지 확인하며 접속 여부를 결정한다", score: 1 },
+          { text: "https 여부는 항상 확인한다", score: 3 },
+          { text: "보안 인증서 오류가 나오면 무시하고 들어간다", score: 5 },
+          { text: "잘 모르지만 주소창에 잠금 표시가 있으면 안심한다", score: 7 },
+          { text: "그런 걸 확인해본 적 없다", score: 10 },
+        ]
+      },
+      {
+        q: "2단계 인증(2FA)을 사용하는 정도는?",
+        options: [
+          { text: "2FA 설정과 함께 인증 앱도 별도로 관리한다", score: 1 },
+          { text: "가능한 모든 서비스에 설정했다", score: 3 },
+          { text: "주요 서비스에만 설정했다", score: 5 },
+          { text: "한두 군데만 설정해 두었다", score: 7 },
+          { text: "사용해본 적 없다", score: 10 },
+        ]
+      },
+      {
+        q: "외부 저장장치(USB 등)나 다른 사람의 기기와 파일을 주고받을 때의 주의 정도는?",
+        options: [
+          { text: "가능하면 외부 저장장치 사용을 지양한다", score: 1 },
+          { text: "모든 외부 저장장치는 연결 전 검사한다", score: 3 },
+          { text: "바이러스 검사를 간헐적으로 한다", score: 5 },
+          { text: "친구나 지인 거라면 그냥 사용한다", score: 7 },
+          { text: "아무런 검토 없이 연결한다", score: 10 },
+        ]
+      }
+    ];
+   let currentQuestion = 0;
+    let totalScore = 0;
+    let selectedScore = null;
+
+    function startSurvey() {
+      document.getElementById("intro").style.display = "none";
+      document.getElementById("questionContainer").style.display = "block";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      selectedScore = null;
+      document.getElementById("nextBtn").style.display = "none";
+      const q = questions[currentQuestion];
+      document.getElementById("question").innerText = q.q;
+      const optionsDiv = document.getElementById("options");
+      optionsDiv.innerHTML = "";
+      q.options.forEach(option => {
+        const btn = document.createElement("div");
+        btn.className = "option-btn";
+        btn.innerText = option.text;
+        btn.onclick = () => {
+          document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add("selected");
+          selectedScore = option.score;
+          document.getElementById("nextBtn").style.display = "inline-block";
+        };
+        optionsDiv.appendChild(btn);
+      });
+      const progress = ((currentQuestion) / questions.length) * 100;
+      document.getElementById("progressBar").style.width = progress + "%";
+    }
+
+    function nextQuestion() {
+      if (selectedScore === null) return;
+      totalScore += selectedScore;
+      currentQuestion++;
+      if (currentQuestion < questions.length) {
+        showQuestion();
+      } else {
+        showResult();
+      }
+    }
+
+    function showResult() {
+      document.getElementById("questionContainer").style.display = "none";
+      document.getElementById("resultContainer").style.display = "block";
+
+      const percent = Math.round((totalScore / (questions.length * 10)) * 100);
+      const canvas = document.getElementById("resultChart");
+      const ctx = canvas.getContext("2d");
+
+      let frame = 0;
+      const target = percent / 100 * 2 * Math.PI;
+      const color = percent >= 80 ? '#e74c3c' : percent >= 50 ? '#f39c12' : '#3498db';
+
+      function animate() {
+        frame++;
+        let angle = frame / 100 * target;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.beginPath();
+        ctx.arc(100, 100, 80, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#ecf0f1';
+        ctx.lineWidth = 15;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(100, 100, 80, -0.5 * Math.PI, angle - 0.5 * Math.PI);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 15;
+        ctx.stroke();
+
+        ctx.font = "24px SUIT";
+        ctx.fillStyle = color;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${Math.round(angle / (2 * Math.PI) * 100)}%`, 100, 100);
+
+        if (frame < 100) requestAnimationFrame(animate);
+      }
+
+      animate();
+
+      const recommendation = document.getElementById("recommendation");
+      const policyLink = document.getElementById("policyLink");
+      if (percent < 50) {
+        recommendation.innerText = "개인정보 보호 상태가 양호합니다. 기본적인 보안 수칙을 유지하세요.";
+        policyLink.href = "https://www.kisa.or.kr/";
+      } else if (percent < 80) {
+        recommendation.innerText = "개인정보 노출 위험이 있으니 비밀번호 관리 및 앱 권한 점검이 필요합니다.";
+        policyLink.href = "https://www.kisa.or.kr/board/?pageId=060200";
+      } else {
+        recommendation.innerText = "개인정보가 심각하게 유출될 수 있습니다. 즉시 보안 수칙을 점검하세요.";
+        policyLink.href = "https://www.privacy.go.kr/";
+      }
+    }
+  </script>
+</body>
+</html>
